@@ -1,0 +1,29 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'io.spring.dependency-management'
+}
+
+description = 'event-processor-flink'
+
+application {
+    mainClass = 'org.kergru.iotplatform.processor.flink.FlinkProcessorJob'
+}
+
+ext {
+    flinkVersion = '2.2.1'
+    flinkKafkaConnectorVersion = '5.0.0-2.2'
+}
+
+dependencies {
+    implementation project(':common-events')
+    implementation "org.apache.flink:flink-streaming-java:${flinkVersion}"
+    implementation "org.apache.flink:flink-clients:${flinkVersion}"
+    implementation "org.apache.flink:flink-connector-base:${flinkVersion}"
+    implementation "org.apache.flink:flink-connector-kafka:${flinkKafkaConnectorVersion}"
+    implementation 'io.confluent:kafka-avro-serializer:8.1.0'
+    implementation 'org.springframework.boot:spring-boot-starter-jackson'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:6.0.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}

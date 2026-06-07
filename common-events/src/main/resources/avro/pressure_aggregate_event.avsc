@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "PressureAggregateEvent",
+  "namespace": "org.kergru.iot.event.avro",
+  "fields": [
+    {"name": "deviceId", "type": "string"},
+    {"name": "sensor", "type": "string"},
+    {"name": "windowStart", "type": "string"},
+    {"name": "windowEnd", "type": "string"},
+    {"name": "count", "type": "long"},
+    {"name": "minPressureHpa", "type": ["null", "double"], "default": null},
+    {"name": "maxPressureHpa", "type": ["null", "double"], "default": null},
+    {"name": "avgPressureHpa", "type": ["null", "double"], "default": null},
+    {"name": "pressureDeltaHpa", "type": ["null", "double"], "default": null},
+    {"name": "trend", "type": "string"}
+  ]
+}

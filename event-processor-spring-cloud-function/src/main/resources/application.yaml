@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: event-processor-spring-cloud-function
+  cloud:
+    function:
+      definition: splitSensorEvent
+    stream:
+      output-bindings: processed-out-0;temperature-out-0;pressure-out-0
+      bindings:
+        splitSensorEvent-in-0:
+          destination: ${KAFKA_INPUT_TOPIC:sensor.raw.bmp180}
+          group: ${SPRING_CLOUD_FUNCTION_GROUP_ID:iot-spring-cloud-function-splitter-v3}
+          content-type: application/octet-stream
+        processed-out-0:
+          destination: ${PROCESSED_OUTPUT_TOPIC:sensor.processed}
+          content-type: application/octet-stream
+          producer:
+            use-native-encoding: true
+        temperature-out-0:
+          destination: ${TEMPERATURE_OUTPUT_TOPIC:sensor.temperature}
+          content-type: application/octet-stream
+          producer:
+            use-native-encoding: true
+        pressure-out-0:
+          destination: ${PRESSURE_OUTPUT_TOPIC:sensor.pressure}
+          content-type: application/octet-stream
+          producer:
+            use-native-encoding: true
+      kafka:
+        binder:
+          brokers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+        bindings:
+          splitSensorEvent-in-0:
+            consumer:
+              start-offset: latest
+              configuration:
+                auto.offset.reset: latest
+                value.deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+          processed-out-0:
+            producer:
+              configuration:
+                value.serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+          temperature-out-0:
+            producer:
+              configuration:
+                value.serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+          pressure-out-0:
+            producer:
+              configuration:
+                value.serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+
+iot:
+  processor:
+    function:
+      input-topic: ${KAFKA_INPUT_TOPIC:sensor.raw.bmp180}
+      processed-output-topic: ${PROCESSED_OUTPUT_TOPIC:sensor.processed}
+      temperature-output-topic: ${TEMPERATURE_OUTPUT_TOPIC:sensor.temperature}
+      pressure-output-topic: ${PRESSURE_OUTPUT_TOPIC:sensor.pressure}
+      processed-output-binding: processed-out-0
+      temperature-output-binding: temperature-out-0
+      pressure-output-binding: pressure-out-0
+      schema-registry-url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}

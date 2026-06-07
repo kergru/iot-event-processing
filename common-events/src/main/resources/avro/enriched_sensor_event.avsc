@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "EnrichedSensorEvent",
+  "namespace": "org.kergru.iot.event.avro",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "ingestionTimestamp", "type": "string"},
+    {"name": "payload", "type": {
+      "type": "record",
+      "name": "SensorEvent",
+      "fields": [
+        {"name": "deviceId", "type": "string"},
+        {"name": "sensor", "type": "string"},
+        {"name": "temperatureC", "type": ["null", "double"], "default": null},
+        {"name": "pressureHpa", "type": ["null", "double"], "default": null},
+        {"name": "timestamp", "type": ["null", "string"], "default": null}
+      ]
+    }}
+  ]
+}

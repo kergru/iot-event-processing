@@ -1,0 +1,8 @@
+rootProject.name = 'iot-event-processing'
+
+include 'common-events'
+include 'mqtt-to-kafka-bridge'
+include 'event-processor-kafka-streams'
+include 'event-processor-flink'
+include 'event-processor-spring-cloud-function'
+include 'report-service'

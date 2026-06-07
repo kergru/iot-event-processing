@@ -1,0 +1,269 @@
+name: iot-event-processing
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    command: ["mosquitto", "-c", "/mosquitto/config/mosquitto.conf"]
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+
+  kafka:
+    image: apache/kafka:4.1.1
+    container_name: kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka-data:/tmp/kraft-combined-logs
+
+  kafka-topic-init:
+    image: apache/kafka:4.1.1
+    container_name: kafka-topic-init
+    depends_on:
+      - kafka
+    restart: "no"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --list >/dev/null 2>&1; do sleep 3; done
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic sensor.raw.bmp180 --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic sensor.raw.invalid --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic sensor.raw.retry --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic sensor.temperature --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic sensor.pressure --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic sensor.processed --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic sensor.temperature.aggregates.kafka-streams --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic sensor.pressure.aggregates.flink --partitions 3 --replication-factor 1
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:8.1.0
+    container_name: schema-registry
+    restart: unless-stopped
+    depends_on:
+      kafka-topic-init:
+        condition: service_completed_successfully
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
+
+  mongodb:
+    image: mongo:8
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+    volumes:
+      - mongo-data:/data/db
+
+  kafka-connect:
+    build:
+      context: ./kafka-connect
+    image: iot-event-processing/kafka-connect-mongodb:latest
+    container_name: kafka-connect
+    restart: unless-stopped
+    depends_on:
+      kafka-topic-init:
+        condition: service_completed_successfully
+      mongodb:
+        condition: service_started
+      schema-registry:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:29092
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_GROUP_ID: iot-connect-cluster
+      CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+
+  kafka-connect-init:
+    image: curlimages/curl:8.17.0
+    container_name: kafka-connect-init
+    depends_on:
+      - kafka-connect
+    restart: "no"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        until curl -fsS http://kafka-connect:8083/connectors >/dev/null; do sleep 3; done
+        curl -fsS -X PUT http://kafka-connect:8083/connectors/mongodb-sink-sensor-processed/config           -H 'Content-Type: application/json'           -d '{
+            "connector.class": "com.mongodb.kafka.connect.MongoSinkConnector",
+            "tasks.max": "1",
+            "topics": "sensor.processed",
+            "connection.uri": "mongodb://admin:admin@mongodb:27017",
+            "database": "iot",
+            "collection": "sensor_measurements",
+            "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+            "value.converter": "io.confluent.connect.avro.AvroConverter",
+            "value.converter.schema.registry.url": "http://schema-registry:8081"
+          }'
+        curl -fsS -X PUT http://kafka-connect:8083/connectors/mongodb-sink-temperature-aggregates/config           -H 'Content-Type: application/json'           -d '{
+            "connector.class": "com.mongodb.kafka.connect.MongoSinkConnector",
+            "tasks.max": "1",
+            "topics": "sensor.temperature.aggregates.kafka-streams",
+            "connection.uri": "mongodb://admin:admin@mongodb:27017",
+            "database": "iot",
+            "collection": "temperature_aggregates",
+            "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+            "value.converter": "io.confluent.connect.avro.AvroConverter",
+            "value.converter.schema.registry.url": "http://schema-registry:8081"
+          }'
+        curl -fsS -X PUT http://kafka-connect:8083/connectors/mongodb-sink-pressure-aggregates/config           -H 'Content-Type: application/json'           -d '{
+            "connector.class": "com.mongodb.kafka.connect.MongoSinkConnector",
+            "tasks.max": "1",
+            "topics": "sensor.pressure.aggregates.flink",
+            "connection.uri": "mongodb://admin:admin@mongodb:27017",
+            "database": "iot",
+            "collection": "pressure_aggregates",
+            "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+            "value.converter": "io.confluent.connect.avro.AvroConverter",
+            "value.converter.schema.registry.url": "http://schema-registry:8081"
+          }'
+
+
+  mqtt-to-kafka-bridge:
+    build:
+      context: .
+      dockerfile: mqtt-to-kafka-bridge/Dockerfile
+    image: iot-event-processing/mqtt-to-kafka-bridge:latest
+    container_name: mqtt-to-kafka-bridge
+    restart: unless-stopped
+    depends_on:
+      mosquitto:
+        condition: service_started
+      kafka-topic-init:
+        condition: service_completed_successfully
+      schema-registry:
+        condition: service_started
+    environment:
+      MQTT_BROKER: tcp://mosquitto:1883
+      MQTT_CLIENT_ID: mqtt-to-kafka-bridge
+      MQTT_TOPIC: sensors/#
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC_SENSOR_RAW: sensor.raw.bmp180
+      KAFKA_TOPIC_SENSOR_INVALID: sensor.raw.invalid
+      KAFKA_TOPIC_SENSOR_RETRY: sensor.raw.retry
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+  event-processor-spring-cloud-function:
+    build:
+      context: .
+      dockerfile: event-processor-spring-cloud-function/Dockerfile
+    image: iot-event-processing/event-processor-spring-cloud-function:latest
+    container_name: event-processor-spring-cloud-function
+    restart: unless-stopped
+    depends_on:
+      mqtt-to-kafka-bridge:
+        condition: service_started
+      kafka-topic-init:
+        condition: service_completed_successfully
+      schema-registry:
+        condition: service_started
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_INPUT_TOPIC: sensor.raw.bmp180
+      SPRING_CLOUD_FUNCTION_GROUP_ID: iot-spring-cloud-function-splitter-v3
+      PROCESSED_OUTPUT_TOPIC: sensor.processed
+      TEMPERATURE_OUTPUT_TOPIC: sensor.temperature
+      PRESSURE_OUTPUT_TOPIC: sensor.pressure
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+  event-processor-kafka-streams:
+    build:
+      context: .
+      dockerfile: event-processor-kafka-streams/Dockerfile
+    image: iot-event-processing/event-processor-kafka-streams:latest
+    container_name: event-processor-kafka-streams
+    restart: unless-stopped
+    depends_on:
+      event-processor-spring-cloud-function:
+        condition: service_started
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_INPUT_TOPIC: sensor.temperature
+      KAFKA_STREAMS_APPLICATION_ID: iot-kafka-streams-temperature-processor
+      KAFKA_STREAMS_OUTPUT_TOPIC: sensor.temperature.aggregates.kafka-streams
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+  event-processor-flink:
+    build:
+      context: .
+      dockerfile: event-processor-flink/Dockerfile
+    image: iot-event-processing/event-processor-flink:latest
+    container_name: event-processor-flink
+    restart: unless-stopped
+    depends_on:
+      event-processor-spring-cloud-function:
+        condition: service_started
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_INPUT_TOPIC: sensor.pressure
+      FLINK_KAFKA_GROUP_ID: iot-flink-pressure-aggregate-processor
+      FLINK_OUTPUT_TOPIC: sensor.pressure.aggregates.flink
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+  report-service:
+    build:
+      context: .
+      dockerfile: report-service/Dockerfile
+    image: iot-event-processing/report-service:latest
+    container_name: report-service
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_started
+      kafka-connect-init:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    environment:
+      MONGODB_HOST: mongodb
+      MONGODB_PORT: 27017
+      MONGODB_DATABASE: iot
+      MONGODB_USERNAME: admin
+      MONGODB_PASSWORD: admin
+      MONGODB_AUTHENTICATION_DATABASE: admin
+
+volumes:
+  kafka-data:
+  mongo-data:
+  mosquitto-data:
+  mosquitto-log:

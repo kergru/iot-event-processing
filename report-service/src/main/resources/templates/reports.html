@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IoT Aggregate Reports</title>
+  <link rel="stylesheet" th:href="@{/reports.css}">
+</head>
+<body>
+  <main class="shell">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">IoT Event Processing</p>
+        <h1>Aggregate Reports</h1>
+      </div>
+      <form class="limit-form" method="get" action="/">
+        <label for="limit">Rows</label>
+        <input id="limit" name="limit" type="number" min="1" max="200" th:value="${limit}">
+        <button type="submit">Refresh</button>
+      </form>
+    </header>
+
+    <section class="summary-grid" aria-label="Summary">
+      <article class="summary-card">
+        <span>Temperature</span>
+        <strong th:text="${overview.temperature.latestAvg == null ? '-' : #numbers.formatDecimal(overview.temperature.latestAvg, 1, 2) + ' C'}">-</strong>
+        <dl>
+          <div>
+            <dt>Windows</dt>
+            <dd th:text="${overview.temperature.windows}">0</dd>
+          </div>
+          <div>
+            <dt>Samples</dt>
+            <dd th:text="${overview.temperature.samples}">0</dd>
+          </div>
+          <div>
+            <dt>Latest</dt>
+            <dd th:text="${overview.temperature.latestWindowEnd ?: '-'}">-</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="summary-card">
+        <span>Pressure</span>
+        <strong th:text="${overview.pressure.latestAvg == null ? '-' : #numbers.formatDecimal(overview.pressure.latestAvg, 1, 2) + ' hPa'}">-</strong>
+        <dl>
+          <div>
+            <dt>Windows</dt>
+            <dd th:text="${overview.pressure.windows}">0</dd>
+          </div>
+          <div>
+            <dt>Samples</dt>
+            <dd th:text="${overview.pressure.samples}">0</dd>
+          </div>
+          <div>
+            <dt>Trend</dt>
+            <dd th:text="${overview.pressure.latestTrend ?: '-'}">-</dd>
+          </div>
+        </dl>
+      </article>
+    </section>
+
+    <section class="table-section">
+      <div class="section-heading">
+        <h2>Temperature Aggregates</h2>
+        <a href="/api/reports/temperature?limit=20">JSON</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Window End</th>
+              <th>Device</th>
+              <th>Count</th>
+              <th>Min C</th>
+              <th>Avg C</th>
+              <th>Max C</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:if="${#lists.isEmpty(temperatures)}">
+              <td colspan="6" class="empty">No temperature aggregates available yet.</td>
+            </tr>
+            <tr th:each="row : ${temperatures}">
+              <td th:text="${row.windowEnd ?: '-'}">-</td>
+              <td th:text="${row.deviceId ?: '-'}">-</td>
+              <td th:text="${row.count}">0</td>
+              <td th:text="${row.min == null ? '-' : #numbers.formatDecimal(row.min, 1, 2)}">-</td>
+              <td th:text="${row.avg == null ? '-' : #numbers.formatDecimal(row.avg, 1, 2)}">-</td>
+              <td th:text="${row.max == null ? '-' : #numbers.formatDecimal(row.max, 1, 2)}">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="table-section">
+      <div class="section-heading">
+        <h2>Pressure Aggregates</h2>
+        <a href="/api/reports/pressure?limit=20">JSON</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Window End</th>
+              <th>Device</th>
+              <th>Count</th>
+              <th>Min hPa</th>
+              <th>Avg hPa</th>
+              <th>Max hPa</th>
+              <th>Delta</th>
+              <th>Trend</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:if="${#lists.isEmpty(pressures)}">
+              <td colspan="8" class="empty">No pressure aggregates available yet.</td>
+            </tr>
+            <tr th:each="row : ${pressures}">
+              <td th:text="${row.windowEnd ?: '-'}">-</td>
+              <td th:text="${row.deviceId ?: '-'}">-</td>
+              <td th:text="${row.count}">0</td>
+              <td th:text="${row.min == null ? '-' : #numbers.formatDecimal(row.min, 1, 2)}">-</td>
+              <td th:text="${row.avg == null ? '-' : #numbers.formatDecimal(row.avg, 1, 2)}">-</td>
+              <td th:text="${row.max == null ? '-' : #numbers.formatDecimal(row.max, 1, 2)}">-</td>
+              <td th:text="${row.delta == null ? '-' : #numbers.formatDecimal(row.delta, 1, 2)}">-</td>
+              <td th:text="${row.trend ?: '-'}">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

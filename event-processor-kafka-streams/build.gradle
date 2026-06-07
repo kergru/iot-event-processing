@@ -1,0 +1,22 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'io.spring.dependency-management'
+}
+
+description = 'event-processor-kafka-streams'
+
+application {
+    mainClass = 'org.kergru.iotplatform.processor.kafkastreams.KafkaStreamsProcessorApplication'
+}
+
+dependencies {
+    implementation project(':common-events')
+    implementation 'org.apache.kafka:kafka-streams:4.1.2'
+    implementation 'io.confluent:kafka-streams-avro-serde:8.1.0'
+    implementation 'org.springframework.boot:spring-boot-starter-jackson'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:6.0.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}

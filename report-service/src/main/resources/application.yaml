@@ -1,0 +1,12 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: report-service
+  mongodb:
+    uri: mongodb://${MONGODB_USERNAME:admin}:${MONGODB_PASSWORD:admin}@${MONGODB_HOST:localhost}:${MONGODB_PORT:27017}/${MONGODB_DATABASE:iot}?authSource=${MONGODB_AUTHENTICATION_DATABASE:admin}
+
+report:
+  temperature-collection: ${TEMPERATURE_AGGREGATES_COLLECTION:temperature_aggregates}
+  pressure-collection: ${PRESSURE_AGGREGATES_COLLECTION:pressure_aggregates}

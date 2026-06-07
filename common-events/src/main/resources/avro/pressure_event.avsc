@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "PressureEvent",
+  "namespace": "org.kergru.iot.event.avro",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "sourceEventId", "type": "string"},
+    {"name": "ingestionTimestamp", "type": "string"},
+    {"name": "measurementTimestamp", "type": ["null", "string"], "default": null},
+    {"name": "deviceId", "type": "string"},
+    {"name": "sensor", "type": "string"},
+    {"name": "pressureHpa", "type": ["null", "double"], "default": null}
+  ]
+}

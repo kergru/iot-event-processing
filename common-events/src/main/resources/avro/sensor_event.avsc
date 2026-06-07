@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "SensorEvent",
+  "namespace": "org.kergru.iot.event.avro",
+  "fields": [
+    {"name": "deviceId", "type": "string"},
+    {"name": "sensor", "type": "string"},
+    {"name": "temperatureC", "type": ["null", "double"], "default": null},
+    {"name": "pressureHpa", "type": ["null", "double"], "default": null},
+    {"name": "timestamp", "type": ["null", "string"], "default": null}
+  ]
+}

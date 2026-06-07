@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: mqtt-to-kafka-bridge
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+mqtt:
+  broker: ${MQTT_BROKER:tcp://localhost:1883}
+  client-id: ${MQTT_CLIENT_ID:mqtt-to-kafka}
+  topic: ${MQTT_TOPIC:sensors/#}
+  reconnect-backoff: ${MQTT_RECONNECT_BACKOFF:5s}
+
+ingestion:
+  queue-capacity: ${INGESTION_QUEUE_CAPACITY:1000}
+  offer-timeout: ${INGESTION_OFFER_TIMEOUT:2s}
+  workers: ${INGESTION_WORKERS:1}
+  max-publish-attempts: ${INGESTION_MAX_PUBLISH_ATTEMPTS:3}
+  retry-backoff: ${INGESTION_RETRY_BACKOFF:1s}
+
+iot:
+  kafka:
+    schema-registry:
+      url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+    topics:
+      sensor-raw: ${KAFKA_TOPIC_SENSOR_RAW:sensor.raw.bmp180}
+      sensor-invalid: ${KAFKA_TOPIC_SENSOR_INVALID:sensor.raw.invalid}
+      sensor-retry: ${KAFKA_TOPIC_SENSOR_RETRY:sensor.raw.retry}
+logging:
+  level:
+    org.kergru.mqtt2kafkabridge: DEBUG

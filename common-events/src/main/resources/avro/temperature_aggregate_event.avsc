@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "TemperatureAggregateEvent",
+  "namespace": "org.kergru.iot.event.avro",
+  "fields": [
+    {"name": "deviceId", "type": "string"},
+    {"name": "sensor", "type": "string"},
+    {"name": "windowStart", "type": "string"},
+    {"name": "windowEnd", "type": "string"},
+    {"name": "count", "type": "long"},
+    {"name": "minTemperatureC", "type": ["null", "double"], "default": null},
+    {"name": "maxTemperatureC", "type": ["null", "double"], "default": null},
+    {"name": "avgTemperatureC", "type": ["null", "double"], "default": null}
+  ]
+}

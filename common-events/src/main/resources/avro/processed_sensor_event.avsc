@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "ProcessedSensorEvent",
+  "namespace": "org.kergru.iot.event.avro",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "sourceEventId", "type": "string"},
+    {"name": "ingestionTimestamp", "type": "string"},
+    {"name": "processedAt", "type": "string"},
+    {"name": "processor", "type": "string"},
+    {"name": "deviceId", "type": "string"},
+    {"name": "sensor", "type": "string"},
+    {"name": "temperatureC", "type": ["null", "double"], "default": null},
+    {"name": "pressureHpa", "type": ["null", "double"], "default": null}
+  ]
+}
