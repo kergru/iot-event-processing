@@ -35,3 +35,4 @@ out/
 
 ### VS Code ###
 .vscode/
+/mqtt-to-kafka-4a7f652d-bebb-4243-a579-04e82ea9497a-tcplocalhost1883/
